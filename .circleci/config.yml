@@ -1,0 +1,21 @@
+version: 2.1
+
+jobs:
+  build:
+    docker:
+      - image: 'cimg/node:18.0'
+    steps:
+      - checkout
+      - run:
+          name: Install dependencies and build project
+          command: 'npm install && npm run build && npm test'
+      - sonarcloud/scan
+
+orbs:
+  sonarcloud: sonarsource/sonarcloud@2.0.0
+
+workflows:
+  main:
+    jobs:
+      - build:
+          context: SonarCloud
