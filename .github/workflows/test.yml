@@ -31,15 +31,17 @@ jobs:
         run: |
           forge --version
 
-      - name: Install Node.js and Prettier
-        run: |
-          curl -fsSL https://deb.nodesource.com/setup_16.x | bash -
-          sudo apt-get install -y nodejs
-          npm install --save-dev prettier prettier-plugin-solidity
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
 
       - name: Run Prettier Check
         run: |
-          npx prettier --check --plugin=prettier-plugin-solidity 'src/**/*.sol' 'test/**/*.sol'
+          npm run prettier:check
 
       - name: Run Forge build
         run: |
