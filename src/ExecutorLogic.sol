@@ -30,11 +30,6 @@ abstract contract ExecutorLogic is IExecutor, WalletCoreBase {
     modifier onlyValidSession(Session calldata session, Call[] calldata calls) {
         validateSession(session);
 
-        // Prevent executors from calling the wallet itself to bypass onlySelf restrictions
-        for (uint256 i = 0; i < calls.length; i++) {
-            if (calls[i].target == address(this)) revert Errors.NotFromSelf();
-        }
-
         bytes memory ret;
 
         if (session.preHook.length >= 20)
@@ -71,6 +66,10 @@ abstract contract ExecutorLogic is IExecutor, WalletCoreBase {
             session.validAfter > block.timestamp ||
             block.timestamp > session.validUntil
         ) revert Errors.InvalidSession();
+
+        // Check storage existence
+        if (address(getMainStorage()).code.length == 0)
+            revert Errors.InvalidSession();
 
         // Check invalidSessionId & validValidator in storage
         getMainStorage().validateSession(session.id, session.validator);

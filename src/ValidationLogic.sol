@@ -78,6 +78,10 @@ abstract contract ValidationLogic is IValidation, WalletCoreBase {
         bytes32 _hash,
         bytes calldata signature
     ) internal view returns (bool) {
+        // Ensure storage contract exists before calling it.
+        // Uninitialized wallets have codeless storage implementations.
+        if (address(getMainStorage()).code.length == 0) return false;
+
         try getMainStorage().validateValidator(validator) {} catch {
             return false;
         }

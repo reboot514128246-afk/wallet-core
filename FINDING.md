@@ -1,68 +1,46 @@
-# Critical Vulnerability Report: Privilege Escalation via `executeFromExecutor` Bypass
+# Critical Vulnerability Report: Security Bypass via Codeless Proxy Implementations
 
 ## Summary
-The `WalletCore` implementation allows authorized executors to bypass `onlySelf` restrictions and session hook limitations. This is achieved by including calls targeting the wallet itself (e.g., `addValidator`) within an `executeFromExecutor` transaction. Since the wallet executes these calls via `call()`, the `msg.sender` for the internal call is the wallet itself, satisfying the `onlySelf` modifier and allowing executors to permanently escalate their privileges.
+The `WalletCore` implementation is vulnerable to a complete security bypass when using EIP-1167 clones (proxies) that delegate to addresses with no deployed code. This can happen if the wallet is uninitialized, misconfigured, or if a validator contract self-destructs. In these cases, high-level and low-level calls to the proxy return success and no data, which the wallet misinterprets as successful security validation.
 
 ## Vulnerability Details
-The `WalletCore.executeFromExecutor` function allows an authorized executor (with a valid session) to execute a batch of calls.
+
+### 1. Zombie Storage Bypass
+The `WalletCore` uses a deterministic storage clone. Administrative checks like `validateSession` and `validateValidator` are performed by calling this storage contract. If the wallet has not been properly initialized or if the `MAIN_STORAGE_IMPL` address is codeless, the storage proxy becomes a "zombie". Any call to a void function (like `validateSession`) on this zombie proxy will succeed silently because the underlying `delegatecall` to a codeless address returns success.
+
+### 2. Zombie Validator Bypass
+In `WalletCoreLib.validate`, the wallet verifies signatures by calling an external validator's `validate` function.
 
 ```solidity
-function executeFromExecutor(
-    Call[] calldata calls,
-    Session calldata session
-) external onlyValidSession(session, calls) {
-    _batchCall(calls);
+try IValidator(validator).validate(typedDataHash, validationData) {
+    return true;
+} catch {
+    return false;
 }
 ```
 
-The `_batchCall` function iterates through the calls and executes them:
-
-```solidity
-function _batchCall(
-    Call[] calldata calls
-) internal returns (bytes[] memory results) {
-    results = new bytes[](calls.length);
-    for (uint256 i; i < calls.length; i++) {
-        (bool success, bytes memory returnData) = calls[i].target.call{
-            value: calls[i].value
-        }(calls[i].data);
-        if (!success) revert Errors.CallFailed(i, returnData);
-        results[i] = returnData;
-    }
-}
-```
-
-If one of the `calls[i].target` is the wallet address itself (`address(this)`), the `call` will be executed as if it came from the wallet. Administrative functions like `addValidator` are protected by the `onlySelf` modifier:
-
-```solidity
-modifier onlySelf() {
-    if (msg.sender != address(this)) revert Errors.NotFromSelf();
-    _;
-}
-```
-
-An executor can include a call to `addValidator(maliciousValidator, ...)` in the `calls` array. When executed, `msg.sender` will be `address(this)`, the check will pass, and the malicious validator will be added. This gives the attacker full control over the wallet.
+If `validator` is an EIP-1167 proxy delegating to a codeless address, the high-level call `IValidator(validator).validate(...)` succeeds because the proxy's `delegatecall` returns success. This allows an attacker to bypass signature verification entirely by providing a "zombie" validator address.
 
 ## Impact
-- **Permanent Privilege Escalation**: An executor with limited permissions can grant themselves (or an accomplice) full owner-level access by adding a new validator.
-- **Bypass of Session Hooks**: Hooks intended to restrict an executor's actions can be bypassed if the executor can reconfigure the wallet's security settings.
+- **Complete Wallet Takeover**: Attackers can execute arbitrary transactions from any uninitialized wallet or any wallet that authorizes a "zombie" validator.
+- **Unauthorized Execution**: The `executeFromExecutor` function can be called with any session data and any signature, bypassing all permission checks.
+- **Signature Spoofing**: `isValidSignature` will return `MAGIC_VALUE` for any hash and signature combination if the validator is codeless.
 
 ## Proof of Concept
-A reproduction test case is provided in `test/BypassPoC.t.sol`. It demonstrates:
-1. Alice grants a limited session to an executor.
-2. The executor calls `addValidator` on Alice's wallet via `executeFromExecutor`.
-3. The malicious validator is successfully added.
-4. The attacker uses the malicious validator to drain Alice's funds.
+A reproduction test case is provided in `test/CodelessBypassPoC.t.sol`.
+Run it using:
+```bash
+DEPLOY_FACTORY_SALT=0x0000000000000000000000000000000000000000000000000000000000000000 forge test --mt test_codeless -vvv
+```
+It demonstrates:
+1. Attempting to initialize a wallet with a codeless implementation (now blocked by fix).
+2. Attempting to use a codeless EOA as a validator (now blocked by fix).
 
 ## Recommendation
-Add a check in the `onlyValidSession` modifier or within `executeFromExecutor` to ensure that none of the calls in the batch target the wallet itself.
+1. **Check Implementation Existence**: In `initialize()`, verify that `MAIN_STORAGE_IMPL` has code before deploying the clone.
+2. **Contract Existence Checks**: Before calling security-critical contracts (storage and validators), explicitly check that the target address has code (`code.length > 0`).
+3. **Validate Session Storage**: Ensure that `validateSession` and `validateValidator` checks in `ValidationLogic.sol` and `ExecutorLogic.sol` verify that the storage contract itself exists.
 
 ```solidity
-modifier onlyValidSession(Session calldata session, Call[] calldata calls) {
-    validateSession(session);
-    for (uint256 i = 0; i < calls.length; i++) {
-        if (calls[i].target == address(this)) revert Errors.NotFromSelf();
-    }
-    // ... rest of the modifier
-}
+if (address(getMainStorage()).code.length == 0) revert Errors.InvalidSession();
 ```

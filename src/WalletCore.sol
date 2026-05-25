@@ -63,6 +63,9 @@ contract WalletCore is
      * @dev Can only be called once during account creation with each storage version
      */
     function initialize() external {
+        if (MAIN_STORAGE_IMPL.code.length == 0)
+            revert Errors.InvalidStorageImpl(MAIN_STORAGE_IMPL);
+
         if (WalletCoreLib._getStorage(MAIN_STORAGE_IMPL).code.length != 0) {
             emit StorageInitialized();
             return;

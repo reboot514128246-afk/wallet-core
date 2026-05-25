@@ -57,6 +57,11 @@ library WalletCoreLib {
         if (validator == SELF_VALIDATION_ADDRESS) {
             return _validateSelf(typedDataHash, validationData);
         } else {
+            // Check that the validator exists.
+            // try-catch on high-level calls in Solidity 0.8.x reverts on missing code
+            // and is NOT caught by the catch block.
+            if (validator.code.length == 0) return false;
+
             try IValidator(validator).validate(typedDataHash, validationData) {
                 return true;
             } catch {
