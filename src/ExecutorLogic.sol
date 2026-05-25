@@ -30,6 +30,11 @@ abstract contract ExecutorLogic is IExecutor, WalletCoreBase {
     modifier onlyValidSession(Session calldata session, Call[] calldata calls) {
         validateSession(session);
 
+        // Prevent executors from calling the wallet itself to bypass onlySelf restrictions
+        for (uint256 i = 0; i < calls.length; i++) {
+            if (calls[i].target == address(this)) revert Errors.NotFromSelf();
+        }
+
         bytes memory ret;
 
         if (session.preHook.length >= 20)
