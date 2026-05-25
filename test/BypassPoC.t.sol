@@ -50,7 +50,11 @@ contract BypassPoC is Base {
         calls[0] = Call({
             target: _alice,
             value: 0,
-            data: abi.encodeWithSelector(IWalletCore.addValidator.selector, address(_ecdsaValidatorImpl), initCode)
+            data: abi.encodeWithSelector(
+                IWalletCore.addValidator.selector,
+                address(_ecdsaValidatorImpl),
+                initCode
+            )
         });
 
         // 3. Execute the malicious call via executeFromExecutor
@@ -60,30 +64,47 @@ contract BypassPoC is Base {
         mockExecutor.execute(calls, session);
 
         // 4. Verify privilege escalation attempt failed: the new validator is NOT active
-        address predictedMaliciousValidator = _getEdcsaValidatorAddress(_alice, maliciousValidatorSigner, address(_ecdsaValidatorImpl));
+        address predictedMaliciousValidator = _getEdcsaValidatorAddress(
+            _alice,
+            maliciousValidatorSigner,
+            address(_ecdsaValidatorImpl)
+        );
         IStorage store = IWalletCore(_alice).getMainStorage();
 
         // This call MUST revert because the validator was NOT added
-        vm.expectRevert(abi.encodeWithSelector(Errors.InvalidValidator.selector, predictedMaliciousValidator));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Errors.InvalidValidator.selector,
+                predictedMaliciousValidator
+            )
+        );
         store.validateValidator(predictedMaliciousValidator);
 
         // The vulnerability is fixed.
         // To be absolutely sure, we can try to use it for a simple transfer.
         uint256 nonce = store.getNonce();
         Call[] memory attackerCalls = new Call[](1);
-        attackerCalls[0] = Call({
-            target: _bob,
-            value: 1 ether,
-            data: ""
-        });
+        attackerCalls[0] = Call({target: _bob, value: 1 ether, data: ""});
 
-        bytes32 validationHash = ValidationLogic(_alice).getValidationTypedHash(nonce, attackerCalls);
+        bytes32 validationHash = ValidationLogic(_alice).getValidationTypedHash(
+            nonce,
+            attackerCalls
+        );
         (v, r, s) = vm.sign(attackerPk, validationHash);
         bytes memory attackerSig = abi.encodePacked(r, s, v);
 
         vm.prank(attacker);
-        vm.expectRevert(abi.encodeWithSelector(Errors.InvalidValidator.selector, predictedMaliciousValidator));
-        IWalletCore(_alice).executeWithValidator(attackerCalls, predictedMaliciousValidator, attackerSig);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Errors.InvalidValidator.selector,
+                predictedMaliciousValidator
+            )
+        );
+        IWalletCore(_alice).executeWithValidator(
+            attackerCalls,
+            predictedMaliciousValidator,
+            attackerSig
+        );
 
         assertEq(_bob.balance, 0 ether);
     }
