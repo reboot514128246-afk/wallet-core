@@ -41,7 +41,7 @@ contract HookTest is Base {
         mockExecutor = new MockExecutor(IWalletCore(_alice));
 
         session = Session({
-            id: 0,
+            id: 0, nonce: 0,
             executor: address(mockExecutor),
             validator: address(1),
             validUntil: validUntil,

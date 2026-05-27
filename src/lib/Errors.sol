@@ -3,7 +3,6 @@ pragma solidity ^0.8.23;
 
 library Errors {
     // Storage related
-    error InvalidStorageImpl(address implementation);
     error InvalidExecutor();
     error InvalidSession();
     error InvalidSessionId();

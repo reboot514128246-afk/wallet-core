@@ -1,46 +1,48 @@
-# Critical Vulnerability Report: Security Bypass via Codeless Proxy Implementations
+# Critical Vulnerability Report: Session Replay Attack in `executeFromExecutor`
 
 ## Summary
-The `WalletCore` implementation is vulnerable to a complete security bypass when using EIP-1167 clones (proxies) that delegate to addresses with no deployed code. This can happen if the wallet is uninitialized, misconfigured, or if a validator contract self-destructs. In these cases, high-level and low-level calls to the proxy return success and no data, which the wallet misinterprets as successful security validation.
+The `executeFromExecutor` function in `WalletCore.sol` is vulnerable to session replay attacks. Once a session and a batch of calls are authorized by the wallet owner's signature, an authorized executor can reuse that same signature to execute the same batch of calls multiple times. The system lacks any nonce-based protection or "one-time-use" mechanism for executions triggered via an executor.
 
 ## Vulnerability Details
-
-### 1. Zombie Storage Bypass
-The `WalletCore` uses a deterministic storage clone. Administrative checks like `validateSession` and `validateValidator` are performed by calling this storage contract. If the wallet has not been properly initialized or if the `MAIN_STORAGE_IMPL` address is codeless, the storage proxy becomes a "zombie". Any call to a void function (like `validateSession`) on this zombie proxy will succeed silently because the underlying `delegatecall` to a codeless address returns success.
-
-### 2. Zombie Validator Bypass
-In `WalletCoreLib.validate`, the wallet verifies signatures by calling an external validator's `validate` function.
+In `ExecutorLogic.sol`, the `onlyValidSession` modifier validates the session:
 
 ```solidity
-try IValidator(validator).validate(typedDataHash, validationData) {
-    return true;
-} catch {
-    return false;
+function validateSession(Session calldata session) public view {
+    // ... validation of executor, time bounds, storage existence ...
+
+    // Check invalidSessionId & validValidator in storage
+    getMainStorage().validateSession(session.id, session.validator);
+
+    // Validate signature
+    bytes32 hash = getSessionTypedHash(session);
+    bool isValid = WalletCoreLib.validate(
+        session.validator,
+        hash,
+        session.signature
+    );
+    if (!isValid) revert Errors.InvalidSignature();
 }
 ```
 
-If `validator` is an EIP-1167 proxy delegating to a codeless address, the high-level call `IValidator(validator).validate(...)` succeeds because the proxy's `delegatecall` returns success. This allows an attacker to bypass signature verification entirely by providing a "zombie" validator address.
-
-## Impact
-- **Complete Wallet Takeover**: Attackers can execute arbitrary transactions from any uninitialized wallet or any wallet that authorizes a "zombie" validator.
-- **Unauthorized Execution**: The `executeFromExecutor` function can be called with any session data and any signature, bypassing all permission checks.
-- **Signature Spoofing**: `isValidSignature` will return `MAGIC_VALUE` for any hash and signature combination if the validator is codeless.
-
-## Proof of Concept
-A reproduction test case is provided in `test/CodelessBypassPoC.t.sol`.
-Run it using:
-```bash
-DEPLOY_FACTORY_SALT=0x0000000000000000000000000000000000000000000000000000000000000000 forge test --mt test_codeless -vvv
-```
-It demonstrates:
-1. Attempting to initialize a wallet with a codeless implementation (now blocked by fix).
-2. Attempting to use a codeless EOA as a validator (now blocked by fix).
-
-## Recommendation
-1. **Check Implementation Existence**: In `initialize()`, verify that `MAIN_STORAGE_IMPL` has code before deploying the clone.
-2. **Contract Existence Checks**: Before calling security-critical contracts (storage and validators), explicitly check that the target address has code (`code.length > 0`).
-3. **Validate Session Storage**: Ensure that `validateSession` and `validateValidator` checks in `ValidationLogic.sol` and `ExecutorLogic.sol` verify that the storage contract itself exists.
+The `Storage.sol` contract's `validateSession` function only checks if the session ID has been manually revoked:
 
 ```solidity
-if (address(getMainStorage()).code.length == 0) revert Errors.InvalidSession();
+function validateSession(uint256 id, address validator) external view {
+    if (_invalidSessionId[id]) revert Errors.InvalidSessionId();
+    validateValidator(validator);
+}
 ```
+
+There is no check for a nonce, and the session is not marked as "used" after execution. As long as the session's `validUntil` timestamp is in the future and the owner hasn't called `revokeSession(id)`, the executor can call `executeFromExecutor` repeatedly with the exact same `calls` and `session` signature.
+
+## Impact
+A malicious or compromised executor can replay a transaction (e.g., a token transfer) multiple times, draining the wallet's funds. Even if hooks are used to limit the executor's power, the lack of replay protection at the core execution level allows the executor to reach those limits repeatedly across different transactions if the hooks themselves don't maintain persistent state to prevent such replays.
+
+## Proof of Concept
+The Foundry-based PoC `test/ReplayExecutorPoC.t.sol` demonstrates that an executor can execute the same transfer multiple times using a single session signature.
+
+## Recommendation
+Implement a nonce-based protection mechanism for session-based executions:
+1. Add a `nonce` field to the `Session` struct.
+2. In `Storage.sol`, maintain a mapping of used nonces per session (or a global nonce per session).
+3. In `ExecutorLogic.sol`, verify that the provided nonce has not been used and mark it as used in storage during execution.

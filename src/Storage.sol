@@ -13,6 +13,7 @@ contract Storage is IStorage {
     uint256 private _nonce;
     mapping(address => bool) private _validValidator;
     mapping(uint256 => bool) private _invalidSessionId;
+    mapping(uint256 => uint256) private _sessionNonce;
 
     /**
      * @notice Restricts function access to the wallet owner only
@@ -23,6 +24,15 @@ contract Storage is IStorage {
             revert Errors.InvalidOwner();
         }
         _;
+    }
+
+    /**
+     * @notice Returns the current nonce for a session
+     * @param id The session ID
+     * @return uint256 The current nonce
+     */
+    function getSessionNonce(uint256 id) external view returns (uint256) {
+        return _sessionNonce[id];
     }
 
     /**
@@ -107,5 +117,18 @@ contract Storage is IStorage {
     function validateSession(uint256 id, address validator) external view {
         if (_invalidSessionId[id]) revert Errors.InvalidSessionId();
         validateValidator(validator);
+    }
+
+    /**
+     * @notice Returns and increments the nonce for a session to prevent replays
+     * @dev Only callable by wallet owner
+     * @param id The session ID
+     * @return uint256 The current nonce before increment
+     */
+    function useSessionNonce(uint256 id) external onlyOwner returns (uint256) {
+        if (_invalidSessionId[id]) revert Errors.InvalidSessionId();
+        unchecked {
+            return _sessionNonce[id]++;
+        }
     }
 }

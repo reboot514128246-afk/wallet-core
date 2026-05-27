@@ -21,4 +21,8 @@ interface IStorage {
     function validateValidator(address validator) external view;
 
     function validateSession(uint256 id, address validator) external view;
+
+    function getSessionNonce(uint256 id) external view returns (uint256);
+
+    function useSessionNonce(uint256 id) external returns (uint256);
 }
