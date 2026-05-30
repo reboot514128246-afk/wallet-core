@@ -82,7 +82,12 @@ contract ValidatorTest is Base {
 
         uint256 nonce = _getNonce(_alice);
         Call[] memory calls = _construct_calls_data();
-        bytes memory signature = _construct_signature(_alicePk, nonce, calls);
+        bytes memory signature = _construct_signature(
+            _alicePk,
+            nonce,
+            calls,
+            WalletCoreLib.SELF_VALIDATION_ADDRESS
+        );
 
         vm.prank(_alice);
         vm.expectRevert(
@@ -134,11 +139,16 @@ contract ValidatorTest is Base {
 
         uint256 nonce = _getNonce(_alice);
         Call[] memory calls = _construct_calls_data();
-        bytes memory signature = _construct_signature(_charliePk, nonce, calls);
         address charlieValidator = _getEdcsaValidatorAddress(
             _alice,
             _charlie,
             address(_ecdsaValidatorImpl)
+        );
+        bytes memory signature = _construct_signature(
+            _charliePk,
+            nonce,
+            calls,
+            charlieValidator
         );
 
         // Relayer executes with Charlie signature

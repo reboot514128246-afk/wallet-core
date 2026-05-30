@@ -77,9 +77,10 @@ contract Base is Test {
     function _construct_signature(
         uint256 privateKey,
         uint256 nonce,
-        Call[] memory calls
+        Call[] memory calls,
+        address validator
     ) public view returns (bytes memory) {
-        bytes32 hash = _getValidationTypedHash(nonce, calls);
+        bytes32 hash = _getValidationTypedHash(nonce, calls, validator);
         return _signHash(privateKey, hash);
     }
 
@@ -96,9 +97,15 @@ contract Base is Test {
 
     function _getValidationTypedHash(
         uint256 nonce,
-        Call[] memory calls
+        Call[] memory calls,
+        address validator
     ) internal view returns (bytes32) {
-        return ValidationLogic(_alice).getValidationTypedHash(nonce, calls);
+        return
+            ValidationLogic(_alice).getValidationTypedHash(
+                nonce,
+                calls,
+                validator
+            );
     }
 
     function _signHash(

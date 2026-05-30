@@ -13,7 +13,7 @@ import {Errors} from "./lib/Errors.sol";
 abstract contract ExecutorLogic is IExecutor, WalletCoreBase {
     bytes32 public constant SESSION_TYPEHASH =
         keccak256(
-            "Session(address wallet,uint256 id,uint256 nonce,address executor,address validator,uint256 validUntil,uint256 validAfter,bytes preHook,bytes postHook)"
+            "Session(address wallet,uint256 id,address executor,address validator,uint256 validUntil,uint256 validAfter,bytes preHook,bytes postHook)"
         );
 
     /**
@@ -29,7 +29,6 @@ abstract contract ExecutorLogic is IExecutor, WalletCoreBase {
      */
     modifier onlyValidSession(Session calldata session, Call[] calldata calls) {
         validateSession(session);
-        getMainStorage().useSessionNonce(session.id);
 
         bytes memory ret;
 
@@ -52,11 +51,10 @@ abstract contract ExecutorLogic is IExecutor, WalletCoreBase {
 
     /**
      * @notice Validates a session's time bounds, status, and signature
-     * @dev Checks four conditions:
+     * @dev Checks three conditions:
      *      1. Current time is within session's time bounds
      *      2. Session is not invalidated in storage
-     *      3. Nonce matches the expected current nonce for the session
-     *      4. Session signature is valid using specified validator
+     *      3. Session signature is valid using specified validator
      * @param session The session data to validate
      */
     function validateSession(Session calldata session) public view {
@@ -71,10 +69,6 @@ abstract contract ExecutorLogic is IExecutor, WalletCoreBase {
 
         // Check invalidSessionId & validValidator in storage
         getMainStorage().validateSession(session.id, session.validator);
-
-        // Check nonce
-        uint256 currentNonce = getMainStorage().getSessionNonce(session.id);
-        if (session.nonce != currentNonce) revert Errors.InvalidSession();
 
         // Validate signature
         bytes32 hash = getSessionTypedHash(session);
@@ -113,7 +107,6 @@ abstract contract ExecutorLogic is IExecutor, WalletCoreBase {
                     SESSION_TYPEHASH,
                     _walletImplementation(),
                     session.id,
-                    session.nonce,
                     session.executor,
                     session.validator,
                     session.validUntil,

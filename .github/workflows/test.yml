@@ -31,14 +31,11 @@ jobs:
         run: |
           forge --version
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18
-
-      - name: Install dependencies
+      - name: Install Node.js and Prettier
         run: |
-          npm install --legacy-peer-deps
+          curl -fsSL https://deb.nodesource.com/setup_16.x | bash -
+          sudo apt-get install -y nodejs
+          npm install --save-dev prettier prettier-plugin-solidity
 
       - name: Run Prettier Check
         run: |

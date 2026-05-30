@@ -9,7 +9,6 @@ struct Call {
 
 struct Session {
     uint256 id;
-    uint256 nonce;
     address executor;
     address validator;
     uint256 validUntil;

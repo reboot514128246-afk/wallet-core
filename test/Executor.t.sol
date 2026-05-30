@@ -41,7 +41,7 @@ contract ExecutorTest is Base {
         mockExecutor = new MockExecutor(IWalletCore(_alice));
 
         session = Session({
-            id: 0, nonce: 0,
+            id: 0,
             executor: address(mockExecutor),
             validator: address(1),
             validUntil: validUntil,
@@ -68,7 +68,7 @@ contract ExecutorTest is Base {
         IWalletCore(_bob).initialize();
 
         Session memory bobSession = Session({
-            id: 0, nonce: 0,
+            id: 0,
             executor: address(mockExecutor),
             validator: address(1),
             validUntil: validUntil,
@@ -111,7 +111,7 @@ contract ExecutorTest is Base {
         IWalletCore(_bob).initialize();
 
         Session memory bobSession = Session({
-            id: 0, nonce: 0,
+            id: 0,
             executor: address(mockExecutor),
             validator: address(1),
             validUntil: validUntil,
@@ -144,7 +144,7 @@ contract ExecutorTest is Base {
         );
 
         session = Session({
-            id: 0, nonce: 0,
+            id: 0,
             executor: address(mockExecutor),
             validator: validatorAddress,
             validUntil: validUntil,
