@@ -8,7 +8,8 @@ interface IValidation {
 
     function getValidationTypedHash(
         uint256 nonce,
-        Call[] calldata calls
+        Call[] calldata calls,
+        address validator
     ) external view returns (bytes32);
 
     function computeValidatorAddress(

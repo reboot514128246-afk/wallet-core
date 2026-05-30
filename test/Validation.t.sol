@@ -14,7 +14,12 @@ contract ValidationTest is Base {
         vm.prank(_alice);
         uint256 nonce = _getNonce(_alice);
         Call[] memory calls = _construct_calls_data();
-        bytes memory signature = _construct_signature(_alicePk, nonce, calls);
+        bytes memory signature = _construct_signature(
+            _alicePk,
+            nonce,
+            calls,
+            WalletCoreLib.SELF_VALIDATION_ADDRESS
+        );
 
         IWalletCore(_alice).executeWithValidator(
             calls,
@@ -29,7 +34,12 @@ contract ValidationTest is Base {
         vm.prank(_bob);
         uint256 nonce = _getNonce(_alice);
         Call[] memory calls = _construct_calls_data();
-        bytes memory signature = _construct_signature(_alicePk, nonce, calls);
+        bytes memory signature = _construct_signature(
+            _alicePk,
+            nonce,
+            calls,
+            WalletCoreLib.SELF_VALIDATION_ADDRESS
+        );
 
         IWalletCore(_alice).executeWithValidator(
             calls,
@@ -45,7 +55,12 @@ contract ValidationTest is Base {
     {
         uint256 nonce = _getNonce(_alice);
         Call[] memory calls = _construct_calls_data();
-        bytes memory signature = _construct_signature(_bobPk, nonce, calls);
+        bytes memory signature = _construct_signature(
+            _bobPk,
+            nonce,
+            calls,
+            WalletCoreLib.SELF_VALIDATION_ADDRESS
+        );
 
         vm.prank(_alice);
         vm.expectRevert(
@@ -63,7 +78,12 @@ contract ValidationTest is Base {
         vm.startPrank(_alice);
         uint256 nonce = _getNonce(_alice);
         Call[] memory calls = _construct_calls_data();
-        bytes memory signature = _construct_signature(_bobPk, nonce, calls);
+        bytes memory signature = _construct_signature(
+            _bobPk,
+            nonce,
+            calls,
+            WalletCoreLib.SELF_VALIDATION_ADDRESS
+        );
         address validatorAddress = _addValidator(_alice);
 
         vm.expectRevert(
@@ -82,7 +102,12 @@ contract ValidationTest is Base {
         vm.prank(_bob);
         uint256 nonce = _getNonce(_alice) + 99;
         Call[] memory calls = _construct_calls_data();
-        bytes memory signature = _construct_signature(_alicePk, nonce, calls);
+        bytes memory signature = _construct_signature(
+            _alicePk,
+            nonce,
+            calls,
+            WalletCoreLib.SELF_VALIDATION_ADDRESS
+        );
         address validatorAddress = _getEdcsaValidatorAddress(
             _alice,
             _alice,
@@ -103,7 +128,12 @@ contract ValidationTest is Base {
         vm.prank(_bob);
         uint256 nonce = _getNonce(_alice);
         Call[] memory calls = _construct_calls_data();
-        bytes memory signature = _construct_signature(_alicePk, nonce, calls);
+        bytes memory signature = _construct_signature(
+            _alicePk,
+            nonce,
+            calls,
+            WalletCoreLib.SELF_VALIDATION_ADDRESS
+        );
         address validatorAddress = _bob; // invalid validator
 
         vm.expectRevert();
@@ -120,7 +150,12 @@ contract ValidationTest is Base {
         vm.startPrank(_alice);
         uint256 nonce = _getNonce(_alice);
         Call[] memory calls = _construct_calls_data();
-        bytes memory signature = _construct_signature(_alicePk, nonce, calls);
+        bytes memory signature = _construct_signature(
+            _alicePk,
+            nonce,
+            calls,
+            WalletCoreLib.SELF_VALIDATION_ADDRESS
+        );
         address validatorAddress = _addValidator(_alice);
 
         IStorage storageContract = IStorage(
@@ -148,7 +183,12 @@ contract ValidationTest is Base {
         vm.prank(_alice);
         uint256 nonce = _getNonce(_alice);
         Call[] memory calls = _construct_calls_data();
-        bytes memory signature = _construct_signature(_alicePk, nonce, calls);
+        bytes memory signature = _construct_signature(
+            _alicePk,
+            nonce,
+            calls,
+            WalletCoreLib.SELF_VALIDATION_ADDRESS
+        );
 
         vm.expectEmit();
         emit NonceConsumed(nonce);

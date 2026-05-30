@@ -15,7 +15,9 @@ abstract contract ValidationLogic is IValidation, WalletCoreBase {
     using Clones for address;
 
     bytes32 private constant CALLS_TYPEHASH =
-        keccak256("Calls(address wallet,uint256 nonce,bytes32[] calls)");
+        keccak256(
+            "Calls(address wallet,address validator,uint256 nonce,bytes32[] calls)"
+        );
     bytes32 private constant CALL_TYPEHASH =
         keccak256("Call(address target,uint256 value,bytes data)");
 
@@ -99,9 +101,10 @@ abstract contract ValidationLogic is IValidation, WalletCoreBase {
      */
     function getValidationTypedHash(
         uint256 nonce,
-        Call[] calldata calls
+        Call[] calldata calls,
+        address validator
     ) public view returns (bytes32) {
-        return _hashTypedDataV4(_getValidationHash(nonce, calls));
+        return _hashTypedDataV4(_getValidationHash(nonce, calls, validator));
     }
 
     /**
@@ -138,7 +141,7 @@ abstract contract ValidationLogic is IValidation, WalletCoreBase {
         address validator,
         bytes calldata validationData
     ) internal view {
-        bytes32 typedDataHash = getValidationTypedHash(nonce, calls);
+        bytes32 typedDataHash = getValidationTypedHash(nonce, calls, validator);
         bool isValid = WalletCoreLib.validate(
             validator,
             typedDataHash,
@@ -156,7 +159,8 @@ abstract contract ValidationLogic is IValidation, WalletCoreBase {
      */
     function _getValidationHash(
         uint256 nonce,
-        Call[] calldata calls
+        Call[] calldata calls,
+        address validator
     ) internal view returns (bytes32) {
         bytes32[] memory callHashes = new bytes32[](calls.length);
         for (uint256 i = 0; i < calls.length; i++) {
@@ -175,6 +179,7 @@ abstract contract ValidationLogic is IValidation, WalletCoreBase {
                 abi.encode(
                     CALLS_TYPEHASH,
                     _walletImplementation(),
+                    validator,
                     nonce,
                     keccak256(abi.encode(callHashes))
                 )
